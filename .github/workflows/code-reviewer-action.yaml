@@ -1,4 +1,4 @@
-name: Gemini AI Code Reviewer
+name: Vertex AI Code Reviewer
 
 on:
   workflow_call:

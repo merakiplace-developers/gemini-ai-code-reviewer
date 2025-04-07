@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 import vertexai
 from vertexai.generative_models import GenerativeModel
 
-# === Vertex AI 초기화 ===
+# === Vertex AI init ===
 credentials_dict = json.loads(os.environ["VERTEXAI_CREDENTIALS_JSON"])
 credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 
@@ -19,7 +19,7 @@ vertexai.init(
     credentials=credentials
 )
 
-# === GitHub Client 초기화 ===
+# === GitHub Client init ===
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 gh = Github(GITHUB_TOKEN)
 

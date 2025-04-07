@@ -79,7 +79,7 @@ Git diff to review:
 ```"""
 
 def get_ai_response(prompt: str) -> List[Dict[str, str]]:
-    model = GenerativeModel("gemini-1.5-pro-preview")
+    model = GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(prompt, generation_config={
         "max_output_tokens": 8192,
         "temperature": 0.8,

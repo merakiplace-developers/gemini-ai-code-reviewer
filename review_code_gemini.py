@@ -107,7 +107,7 @@ def create_prompt(file_path: str, hunk: Hunk, pr_details: PRDetails) -> str:
 
     instruction = language_instruction.get(LANGUAGE, f"✍️ Please answer in {LANGUAGE}.")
 
-    return f"""{language_instruction}
+    return f"""{instruction}
 
 Your task is reviewing pull requests. Instructions:
 - Provide the response in following JSON format:  {{"reviews": [{{"lineNumber":  <line_number>, "reviewComment": "<review comment>"}}]}}

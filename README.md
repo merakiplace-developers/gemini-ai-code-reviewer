@@ -55,7 +55,7 @@ permissions: write-all
 
 jobs:
   call-reviewer:
-    uses: merakiplace-developers/gemini-ai-code-reviewer/.github/workflows/code-reviewer-action.yaml@main
+    uses: merakiplace-developers/gemini-ai-code-reviewer@v0.0.1
     with:
       EXCLUDE: '*.md,*.lock'
     secrets:

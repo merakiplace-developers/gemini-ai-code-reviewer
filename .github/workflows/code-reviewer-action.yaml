@@ -7,8 +7,6 @@ on:
         required: false
         type: string
     secrets:
-      GITHUB_TOKEN:
-        required: true
       VERTEXAI_CREDENTIALS_JSON:
         required: true
       VERTEXAI_PROJECT_ID:

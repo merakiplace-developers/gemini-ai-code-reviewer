@@ -96,7 +96,6 @@ Set your desired model in the Python code (`GenerativeModel("...")`).
 
 - Based on [`truongnh1992/gemini-ai-code-reviewer`](https://github.com/truongnh1992/gemini-ai-code-reviewer)
 - Vertex AI version customized for GCP users by [@merakiplace-developers](https://github.com/merakiplace-developers)
-- Supported by Google Cloud under the `#VertexAISprint` program ☁️
 
 ---
 

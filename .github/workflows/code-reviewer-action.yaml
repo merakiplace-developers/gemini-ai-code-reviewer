@@ -29,9 +29,14 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Show directory structure
+        run: |
+          echo "📁 현재 디렉토리 위치: $(pwd)"
+          ls -al
+
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r ./requirements.txt
 
       - name: Run Gemini AI Code Reviewer
         env:

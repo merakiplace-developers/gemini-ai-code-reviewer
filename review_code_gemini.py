@@ -148,14 +148,18 @@ def get_ai_response(prompt: str) -> List[Dict[str, str]]:
 
 def create_comment(file_path: str, hunk: Hunk, ai_responses: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     comments = []
+    diff_lines = hunk.content.splitlines()
+    added_line_indices = [i for i, line in enumerate(diff_lines) if line.startswith("+") and not line.startswith("+++")]
+
     for res in ai_responses:
         try:
-            line_number = int(res["lineNumber"])
-            if 1 <= line_number <= hunk.source_length:
+            line_number = int(res["lineNumber"]) - 1  
+            if 0 <= line_number < len(added_line_indices):
+                position = added_line_indices[line_number] + 1  
                 comments.append({
                     "body": res["reviewComment"],
                     "path": file_path,
-                    "position": line_number
+                    "position": position
                 })
         except Exception as e:
             print("Comment creation error:", e)

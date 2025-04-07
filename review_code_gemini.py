@@ -10,9 +10,8 @@ import vertexai
 from vertexai.generative_models import GenerativeModel
 
 # === Vertex AI 초기화 ===
-credentials = service_account.Credentials.from_service_account_file(
-    os.environ["VERTEXAI_CREDENTIALS_JSON"]
-)
+credentials_dict = json.loads(os.environ["VERTEXAI_CREDENTIALS_JSON"])
+credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 
 vertexai.init(
     project=os.environ["VERTEXAI_PROJECT_ID"],

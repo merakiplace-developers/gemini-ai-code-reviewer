@@ -12,6 +12,10 @@ inputs:
   VERTEXAI_PROJECT_ID:
     description: 'GCP Project ID for Vertex AI'
     required: true
+  LANGUAGE:
+    description: 'Language of the AI review comments'
+    required: false
+    default: 'English'
   EXCLUDE:
     description: 'Comma-separated list of file patterns to exclude'
     required: false
@@ -39,4 +43,5 @@ runs:
         VERTEXAI_CREDENTIALS_JSON: ${{ inputs.VERTEXAI_CREDENTIALS_JSON }}
         VERTEXAI_PROJECT_ID: ${{ inputs.VERTEXAI_PROJECT_ID }}
         INPUT_EXCLUDE: ${{ inputs.EXCLUDE }}
+        LANGUAGE: ${{ inputs.LANGUAGE }}
       run: python ${{ github.action_path }}/review_code_gemini.py

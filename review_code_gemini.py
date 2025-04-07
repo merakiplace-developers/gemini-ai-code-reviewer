@@ -23,6 +23,8 @@ vertexai.init(
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 gh = Github(GITHUB_TOKEN)
 
+LANGUAGE = os.environ.get("LANGUAGE", "English")
+
 class PRDetails:
     def __init__(self, owner: str, repo: str, pull_number: int, title: str, description: str):
         self.owner = owner
@@ -59,12 +61,60 @@ def get_diff(owner: str, repo: str, pull_number: int) -> str:
     return response.text if response.status_code == 200 else ""
 
 def create_prompt(file_path: str, hunk: Hunk, pr_details: PRDetails) -> str:
-    return f"""Your task is reviewing pull requests. Instructions:
-    - Provide the response in following JSON format:  {{"reviews": [{{"lineNumber":  <line_number>, "reviewComment": "<review comment>"}}]}}
-    - Provide comments and suggestions ONLY if there is something to improve, otherwise "reviews" should be an empty array.
-    - Use GitHub Markdown in comments
-    - Focus on bugs, security issues, and performance problems
-    - IMPORTANT: NEVER suggest adding comments to the code
+    language_instruction = {
+        "English": "✍️ Answer must be in English.",
+        "Korean": "✍️ 답변은 반드시 한국어로 해주세요.",
+        "Japanese": "✍️ 回答は必ず日本語でお願いします。",
+        "Chinese": "✍️ 回答必须使用中文。",
+        "French": "✍️ Veuillez répondre en français.",
+        "German": "✍️ Bitte antworten Sie auf Deutsch.",
+        "Spanish": "✍️ Por favor responde en español.",
+        "Portuguese": "✍️ Por favor, responda em português.",
+        "Russian": "✍️ Пожалуйста, отвечайте на русском.",
+        "Italian": "✍️ Si prega di rispondere in italiano.",
+        "Dutch": "✍️ Antwoord alstublieft in het Nederlands.",
+        "Arabic": "✍️ الرجاء الرد باللغة العربية.",
+        "Hindi": "✍️ कृपया हिंदी में उत्तर दें।",
+        "Bengali": "✍️ অনুগ্রহ করে বাংলায় উত্তর দিন।",
+        "Turkish": "✍️ Lütfen Türkçe cevap verin.",
+        "Vietnamese": "✍️ Vui lòng trả lời bằng tiếng Việt.",
+        "Thai": "✍️ กรุณาตอบเป็นภาษาไทย",
+        "Polish": "✍️ Proszę odpowiedzieć po polsku.",
+        "Ukrainian": "✍️ Будь ласка, відповідайте українською.",
+        "Czech": "✍️ Prosím odpovězte česky.",
+        "Swedish": "✍️ Svara gärna på svenska.",
+        "Finnish": "✍️ Vastaa suomeksi.",
+        "Norwegian": "✍️ Vennligst svar på norsk.",
+        "Danish": "✍️ Svar venligst på dansk.",
+        "Romanian": "✍️ Vă rugăm să răspundeți în română.",
+        "Hungarian": "✍️ Kérjük, válaszoljon magyarul.",
+        "Hebrew": "✍️ אנא השב בעברית.",
+        "Greek": "✍️ Παρακαλώ απαντήστε στα ελληνικά.",
+        "Malay": "✍️ Sila jawab dalam Bahasa Melayu.",
+        "Indonesian": "✍️ Silakan jawab dalam Bahasa Indonesia.",
+        "Filipino": "✍️ Mangyaring sumagot sa wikang Filipino.",
+        "Persian": "✍️ لطفاً به زبان فارسی پاسخ دهید.",
+        "Swahili": "✍️ Tafadhali jibu kwa Kiswahili.",
+        "Slovak": "✍️ Prosím, odpovedzte po slovensky.",
+        "Serbian": "✍️ Molimo odgovorite na srpskom.",
+        "Croatian": "✍️ Molimo odgovorite na hrvatskom.",
+        "Bulgarian": "✍️ Моля, отговорете на български.",
+        "Slovenian": "✍️ Prosimo, odgovorite v slovenščini.",
+        "Lithuanian": "✍️ Prašome atsakyti lietuviškai.",
+        "Latvian": "✍️ Lūdzu, atbildiet latviski.",
+        "Estonian": "✍️ Palun vastake eesti keeles."
+    }
+
+    instruction = language_instruction.get(LANGUAGE, f"✍️ Please answer in {LANGUAGE}.")
+
+    return f"""{language_instruction}
+
+Your task is reviewing pull requests. Instructions:
+- Provide the response in following JSON format:  {{"reviews": [{{"lineNumber":  <line_number>, "reviewComment": "<review comment>"}}]}}
+- Provide comments and suggestions ONLY if there is something to improve, otherwise "reviews" should be an empty array.
+- Use GitHub Markdown in comments
+- Focus on bugs, security issues, and performance problems
+- IMPORTANT: NEVER suggest adding comments to the code
 
 Review the following code diff in the file "{file_path}" and take the pull request title and description into account when writing the response.
 

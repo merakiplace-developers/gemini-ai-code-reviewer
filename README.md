@@ -1,30 +1,39 @@
-## Google Cloud credits are provided for this project `#VertexAISprint`
-Thanks, [Google](https://github.com/google) :)
+⸻
 
-# Gemini AI Code Reviewer
+✨ Vertex AI 기반 Gemini PR Reviewer
 
-A GitHub Action that automatically reviews pull requests using Google's Gemini AI.
+A GitHub Action that automatically reviews pull requests using Google’s Gemini AI via Vertex AI.
+Built as a custom fork of truongnh1992/gemini-ai-code-reviewer, this version uses Google Cloud’s secure Vertex AI credentials instead of Gemini API keys.
 
-## Features
+⸻
 
-- Review your PRs using Gemini API
-- Give use comments and suggestions to improve the source codes
+🎯 What’s Different?
 
-![Demo](./Demo.png)
-![Demo2](./Demo2.png)
+This version is designed for teams or enterprises that use Google Cloud credits and want:
+	•	Better control via service account and IAM
+	•	Higher quotas and rate limits
+	•	No need to manage Gemini API keys manually
 
-## Setup
+⸻
 
-1. To use this GitHub Action, you need an Gemini API key. If you don't have one, sign up for an API key
-   at [Google AI Studio](https://makersuite.google.com/app/apikey).
+⚙️ Features
+	•	💬 Automatic code review comments on pull requests
+	•	🧠 Powered by gemini-1.5-pro or gemini-1.5-flash
+	•	🔐 Uses Google Cloud’s Vertex AI (no API key required)
+	•	✂️ Exclude files with glob patterns (e.g. *.md,*.lock)
 
-2. Add the Gemini API key as a GitHub Secret in your repository with the name `GEMINI_API_KEY`. You can find more
-   information about GitHub Secrets [here](https://docs.github.com/en/actions/reference/encrypted-secrets).
+⸻
 
-3. Create a `.github/workflows/code-review.yml` file in your repository and add the following content:
+🚀 How to Use
+	1.	Create a service account in Google Cloud
+	•	Give it the Vertex AI User role
+	•	Create a JSON key and save it
+	2.	Add the following GitHub Secrets to your target repo:
+	•	VERTEXAI_CREDENTIALS_JSON – content of your service account JSON
+	•	VERTEXAI_PROJECT_ID – your GCP project ID
+	3.	In your target repo, create a workflow file like .github/workflows/use-reviewer.yaml:
 
-```yaml
-name: Gemini AI Code Reviewer
+name: Use Vertex AI PR Reviewer
 
 on:
   issue_comment:
@@ -33,52 +42,38 @@ on:
 permissions: write-all
 
 jobs:
-  gemini-code-review:
-    runs-on: ubuntu-latest
-    if: |
-      github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/gemini-review')
-    steps:
-      - name: PR Info
-        run: |
-          echo "Comment: ${{ github.event.comment.body }}"
-          echo "Issue Number: ${{ github.event.issue.number }}"
-          echo "Repository: ${{ github.repository }}"
+  call-reviewer:
+    uses: merakiplace-developers/gemini-ai-code-reviewer/.github/workflows/code-reviewer-action.yaml@main
+    with:
+      EXCLUDE: '*.md,*.lock'
+    secrets:
+      VERTEXAI_CREDENTIALS_JSON: ${{ secrets.VERTEXAI_CREDENTIALS_JSON }}
+      VERTEXAI_PROJECT_ID: ${{ secrets.VERTEXAI_PROJECT_ID }}
 
-      - name: Checkout Repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+	4.	Trigger code review
+Just comment /gemini-review in a pull request. The bot will fetch the diff, analyze it, and leave review comments automatically!
 
-      - name: Get PR Details
-        id: pr
-        run: |
-          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
-          echo "head_sha=$(echo $PR_JSON | jq -r .head.sha)" >> $GITHUB_OUTPUT
-          echo "base_sha=$(echo $PR_JSON | jq -r .base.sha)" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+⸻
 
-      - uses: truongnh1992/gemini-ai-code-reviewer@main
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-1.5-pro-002 # Optional, default is `gemini-1.5-flash-002`
-          EXCLUDE: "*.md,*.txt,package-lock.json,*.yml,*.yaml"
-```
-> if you don't set `GEMINI_MODEL`, the default model is `gemini-2.0-flash-001`. `gemini-2.0-flash-001` is a next-generation model offering speed and multimodal generation capabilities.  It's suitable for a wide variety of tasks, including code generation, data extraction, and text editing.. For the detailed information about the models, please refer to [Gemini models](https://ai.google.dev/gemini-api/docs/models/gemini).
-4. Commit codes to your repository, and working on your pull requests.
-5. When you're ready to review the PR, you can trigger the workflow by commenting `/gemini-review` in the PR.
+🧠 Powered by Vertex AI
 
-## How It Works
+This action uses vertexai.generative_models.GenerativeModel under the hood.
+You can easily switch between models like:
+	•	gemini-1.5-pro-preview
+	•	gemini-1.5-flash
+	•	or even gemini-1.0-pro if needed
 
-This GitHub Action uses the Gemini AI API to provide code review feedback. It works by:
+⸻
 
-1. **Analyzing the changes**: It grabs the code modifications from your pull request and filters out any files you don't want reviewed.
-2. **Consulting the Gemini model**: It sends chunks of the modified code to the Gemini for analysis.
-3. **Providing feedback**: Gemini AI examines the code and generates review comments.
-4. **Delivering the review**: The Action adds the comments directly to your pull request on GitHub.
+🙏 Credits
 
-## License
+Based on the original open-source project: truongnh1992/gemini-ai-code-reviewer
+This version was adapted for Vertex AI users under the #VertexAISprint program, supported by Google ☁️
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
+⸻
+
+📄 License
+
+MIT License – See LICENSE
+
+⸻

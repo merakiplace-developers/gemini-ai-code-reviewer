@@ -25,7 +25,7 @@ PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"] # @param {type: "string", placeho
 
 LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
 
-client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
+client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION, credentials=credentials)
 
 # === GitHub Client init ===
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]

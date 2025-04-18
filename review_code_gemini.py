@@ -141,8 +141,8 @@ def get_ai_response(prompt: str) -> List[Dict[str, str]]:
         "max_output_tokens": 8192,
         "temperature": 0.8,
         "top_p": 0.95,
-        "thinkingConfig" : {
-            "thinkingBudget" : 1024
+        "thinking_config" : {
+            "thinking_budget" : 1024
         }
     })
     try:

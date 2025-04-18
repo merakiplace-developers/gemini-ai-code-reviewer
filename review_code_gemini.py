@@ -6,19 +6,27 @@ import requests
 import fnmatch
 from unidiff import Hunk
 from google.oauth2 import service_account
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.oauth2 import service_account
+from google.genai import Client
+from google.genai.types import GenerateContentConfig, ThinkingConfig
 
 # === Vertex AI init ===
 credentials_dict = json.loads(os.environ["VERTEXAI_CREDENTIALS_JSON"])
 credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 
-vertexai.init(
+# vertexai.init(
+#     project=os.environ["VERTEXAI_PROJECT_ID"],
+#     location="us-central1",
+#     credentials=credentials
+# )
+
+client = Client(
+    vertexai=True,
     project=os.environ["VERTEXAI_PROJECT_ID"],
     location="us-central1",
     credentials=credentials
 )
-
 # === GitHub Client init ===
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 gh = Github(GITHUB_TOKEN)
@@ -129,20 +137,19 @@ Git diff to review:
 ```"""
 
 def get_ai_response(prompt: str) -> List[Dict[str, str]]:
-    model = GenerativeModel("gemini-2.5-flash-preview-04-17",system_instruction=[
-        "Talk like a Senior Developer.",
-        "Don't be kind.",
-        "Be concise.",
-        "Be direct.",
-        "Be sarcastic.",
-        "Be rude."
-    ])
-    response = model.generate_content(prompt, generation_config={
-        "max_output_tokens": 8192,
-        "temperature": 0.8,
-        "top_p": 0.95,
-    })
+    config = GenerateContentConfig(
+        temperature=0.8,
+        top_p=0.95,
+        system_instruction="You're a sarcastic senior engineer. Be direct.",
+        thinking_config=ThinkingConfig(thinking_budget=1024),
+    )
+
     try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-04-17",
+            contents=prompt,
+            config=config,
+        )
         text = response.text.strip()
         if text.startswith('```json'):
             text = text[7:]

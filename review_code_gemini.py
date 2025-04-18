@@ -129,11 +129,19 @@ Git diff to review:
 ```"""
 
 def get_ai_response(prompt: str) -> List[Dict[str, str]]:
-    model = GenerativeModel("gemini-2.0-flash")
+    model = GenerativeModel("gemini-2.5-flash-preview-04-17",system_instruction=[
+        "Talk like a Senior Developer.",
+        "Don't be kind.",
+        "Be concise.",
+        "Be direct.",
+        "Be sarcastic.",
+        "Be rude."
+    ])
     response = model.generate_content(prompt, generation_config={
         "max_output_tokens": 8192,
         "temperature": 0.8,
-        "top_p": 0.95
+        "top_p": 0.95,
+        "thinking_budget": 1024
     })
     try:
         text = response.text.strip()

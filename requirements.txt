@@ -3,5 +3,5 @@ google-generativeai
 PyGitHub
 github3.py==1.3.0
 unidiff
-google-cloud-aiplatform
+google-cloud-aiplatform>=1.38
 google-auth

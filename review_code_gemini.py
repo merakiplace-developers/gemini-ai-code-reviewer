@@ -21,12 +21,12 @@ credentials = service_account.Credentials.from_service_account_info(credentials_
 #     credentials=credentials
 # )
 
-client = Client(
-    vertexai=True,
-    project=os.environ["VERTEXAI_PROJECT_ID"],
-    location="us-central1",
-    credentials=credentials
-)
+PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"] # @param {type: "string", placeholder: "[your-project-id]", isTemplate: true}
+
+LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
+
+client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
+
 # === GitHub Client init ===
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 gh = Github(GITHUB_TOKEN)

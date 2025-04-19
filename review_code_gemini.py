@@ -5,6 +5,7 @@ import re
 import requests
 import yaml
 from github import Github
+from github.PullRequest import ReviewComment
 from google import genai
 from google.genai.types import GenerateContentConfig, ThinkingConfig
 from typing import List, Dict, Any, Optional, Tuple
@@ -252,7 +253,6 @@ def setup_environment():
     VERTEXAI_MODEL_TEMPERATURE = float(os.environ.get("VERTEXAI_MODEL_TEMPERATURE", 0.8))
     VERTEXAI_MODEL_TOP_P = float(os.environ.get("VERTEXAI_MODEL_TOP_P", 0.95))
     VERTEXAI_MODEL_THINKING_BUDGET = int(os.environ.get("VERTEXAI_MODEL_THINKING_BUDGET", 0))
-
 
     # Initialize clients
     global gh, client
@@ -985,19 +985,26 @@ def get_conversation_history(repo, comment_id: int) -> List[Dict[str, str]]:
     return conversation
 
 
-def create_comment(file_path: str, hunk: Hunk, ai_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+def create_comment(
+        file_path: str,
+        hunk: Hunk,
+        ai_response: Dict[str, Any]
+) -> List[ReviewComment]:
     """Create comment objects for GitHub review API"""
     comments = []
     diff_lines = hunk.content.splitlines()
     added_line_indices = [i for i, line in enumerate(diff_lines) if line.startswith("+") and not line.startswith("+++")]
 
     # Add summary comment if available
-    if ai_response.get("summary"):
-        comments.append({
-            "body": f"### PR Summary\n{ai_response.get('summary')}",
-            "path": file_path,
-            "position": 1  # Position at beginning of diff
-        })
+    summary = ai_response.get("summary")
+    if summary:
+        comments.append(
+            ReviewComment(
+                body=f"### PR Summary\n{summary}",
+                path=file_path,
+                position=1  # Position at beginning of diff
+            )
+        )
 
     # Add line-specific comments
     for res in ai_response.get("reviews", []):
@@ -1005,11 +1012,13 @@ def create_comment(file_path: str, hunk: Hunk, ai_response: Dict[str, Any]) -> L
             line_number = int(res["lineNumber"]) - 1
             if 0 <= line_number < len(added_line_indices):
                 position = added_line_indices[line_number] + 1
-                comments.append({
-                    "body": res["reviewComment"],
-                    "path": file_path,
-                    "position": position
-                })
+                comments.append(
+                    ReviewComment(
+                        body=res["reviewComment"],
+                        path=file_path,
+                        position=position
+                    )
+                )
         except Exception as e:
             print(f"Comment creation error: {e}")
 
@@ -1075,7 +1084,11 @@ def get_file_and_hunk_for_comment(repo, pr, comment_id: int) -> Tuple[Optional[s
 
 
 # === Main Review Logic ===
-def analyze_code(repo, pr, parsed_diff: List[Dict[str, Any]], pr_details: PRDetails) -> List[Dict[str, Any]]:
+def analyze_code(
+        repo, pr,
+        parsed_diff: List[Dict[str, Any]],
+        pr_details: PRDetails
+) -> List[ReviewComment]:
     """Analyze code changes and generate review comments"""
     all_comments = []
 

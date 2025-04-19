@@ -13,9 +13,17 @@ from typing import List, Dict, Any, Optional, Tuple
 from unidiff import Hunk
 
 PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"]
-
 LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
 
+credentials_json_str = os.environ["VERTEXAI_CREDENTIALS_JSON"]
+creds_file_path = "/tmp/google-credentials.json"
+
+with open(creds_file_path, "w") as f:
+    f.write(credentials_json_str)
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file_path
+
+# === Google GenAI Client init ===
 client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
 
 # === GitHub Client init ===

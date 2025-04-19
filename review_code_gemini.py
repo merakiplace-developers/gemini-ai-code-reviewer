@@ -12,12 +12,7 @@ from google.oauth2 import service_account
 from typing import List, Dict, Any, Optional, Tuple
 from unidiff import Hunk
 
-# === Vertex AI init ===
-credentials_dict = json.loads(os.environ["VERTEXAI_CREDENTIALS_JSON"])
-credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-
-PROJECT_ID = os.environ[
-    "VERTEXAI_PROJECT_ID"]  # @param {type: "string", placeholder: "[your-project-id]", isTemplate: true}
+PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"]
 
 LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
 

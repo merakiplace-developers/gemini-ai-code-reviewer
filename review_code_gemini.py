@@ -240,13 +240,23 @@ def setup_environment():
     LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
     GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
     LANGUAGE = os.environ.get("LANGUAGE", "English")
-    CUSTOM_GUIDELINES_PATHS = [path.strip() for path in os.environ.get("INPUT_GUIDELINES_PATH", "").split(",") if
-                               path.strip()]
+    CUSTOM_GUIDELINES_PATHS = [
+        path.strip()
+        for path in os.environ.get("INPUT_GUIDELINES_PATH", "").split(",")
+        if path.strip()
+    ]
+
+    global VERTEXAI_MODEL_NAME, VERTEXAI_MODEL_TEMPERATURE, VERTEXAI_MODEL_TOP_P, VERTEXAI_MODEL_THINKING_BUDGET
+    VERTEXAI_MODEL_NAME = os.environ.get("VERTEXAI_MODEL_NAME", "gemini-2.5-flash-preview-04-17")
+    VERTEXAI_MODEL_TEMPERATURE = float(os.environ.get("VERTEXAI_MODEL_TEMPERATURE", 0.8))
+    VERTEXAI_MODEL_TOP_P = float(os.environ.get("VERTEXAI_MODEL_TOP_P", 0.95))
+    VERTEXAI_MODEL_THINKING_BUDGET = int(os.environ.get("VERTEXAI_MODEL_THINKING_BUDGET", 0))
+
 
     # Initialize clients
     global gh, client
     gh = Github(GITHUB_TOKEN)
-    client = genai.Client(project=PROJECT_ID, location=LOCATION)
+    client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
 
 
 # Data classes
@@ -464,7 +474,44 @@ def create_prompt(file_path: str, hunk: Hunk, pr_details: PRDetails, app_type: s
         "English": "✍️ Answer must be in English.",
         "Korean": "✍️ 답변은 반드시 한국어로 해주세요.",
         "Japanese": "✍️ 回答は必ず日本語でお願いします。",
-        # Other languages would be included here
+        "Chinese": "✍️ 回答必须使用中文。",
+        "French": "✍️ Veuillez répondre en français.",
+        "German": "✍️ Bitte antworten Sie auf Deutsch.",
+        "Spanish": "✍️ Por favor responde en español.",
+        "Portuguese": "✍️ Por favor, responda em português.",
+        "Russian": "✍️ Пожалуйста, отвечайте на русском.",
+        "Italian": "✍️ Si prega di rispondere in italiano.",
+        "Dutch": "✍️ Antwoord alstublieft in het Nederlands.",
+        "Arabic": "✍️ الرجاء الرد باللغة العربية.",
+        "Hindi": "✍️ कृपया हिंदी में उत्तर दें।",
+        "Bengali": "✍️ অনুগ্রহ করে বাংলায় উত্তর দিন।",
+        "Turkish": "✍️ Lütfen Türkçe cevap verin.",
+        "Vietnamese": "✍️ Vui lòng trả lời bằng tiếng Việt.",
+        "Thai": "✍️ กรุณาตอบเป็นภาษาไทย",
+        "Polish": "✍️ Proszę odpowiedzieć po polsku.",
+        "Ukrainian": "✍️ Будь ласка, відповідайте українською.",
+        "Czech": "✍️ Prosím odpovězte česky.",
+        "Swedish": "✍️ Svara gärna på svenska.",
+        "Finnish": "✍️ Vastaa suomeksi.",
+        "Norwegian": "✍️ Vennligst svar på norsk.",
+        "Danish": "✍️ Svar venligst på dansk.",
+        "Romanian": "✍️ Vă rugăm să răspundeți în română.",
+        "Hungarian": "✍️ Kérjük, válaszoljon magyarul.",
+        "Hebrew": "✍️ אנא השב בעברית.",
+        "Greek": "✍️ Παρακαλώ απαντήστε στα ελληνικά.",
+        "Malay": "✍️ Sila jawab dalam Bahasa Melayu.",
+        "Indonesian": "✍️ Silakan jawab dalam Bahasa Indonesia.",
+        "Filipino": "✍️ Mangyaring sumagot sa wikang Filipino.",
+        "Persian": "✍️ لطفاً به زبان فارسی پاسخ دهید.",
+        "Swahili": "✍️ Tafadhali jibu kwa Kiswahili.",
+        "Slovak": "✍️ Prosím, odpovedzte po slovensky.",
+        "Serbian": "✍️ Molimo odgovorite na srpskom.",
+        "Croatian": "✍️ Molimo odgovorite na hrvatskom.",
+        "Bulgarian": "✍️ Моля, отговорете на български.",
+        "Slovenian": "✍️ Prosimo, odgovorite v slovenščini.",
+        "Lithuanian": "✍️ Prašome atsakyti lietuviškai.",
+        "Latvian": "✍️ Lūdzu, atbildiet latviski.",
+        "Estonian": "✍️ Palun vastake eesti keeles."
     }
     instruction = language_map.get(LANGUAGE, f"✍️ Please answer in {LANGUAGE}.")
 
@@ -666,16 +713,16 @@ def get_ai_response(prompt: str, include_summary: bool = True, app_type: str = '
 
     # Configure AI request
     config = GenerateContentConfig(
-        temperature=0.8,
-        top_p=0.95,
+        temperature=VERTEXAI_MODEL_TEMPERATURE,
+        top_p=VERTEXAI_MODEL_TOP_P,
         system_instruction=system_instruction,
-        thinking_config=ThinkingConfig(thinking_budget=1024),
+        thinking_config=ThinkingConfig(thinking_budget=VERTEXAI_MODEL_THINKING_BUDGET),
     )
 
     try:
         # Get AI response
         response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-04-17",
+            model=VERTEXAI_MODEL_NAME,
             contents=prompt,
             config=config,
         )

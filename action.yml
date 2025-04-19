@@ -20,6 +20,26 @@ inputs:
     description: 'Vertex AI project ID'
     required: true
 
+  vertexai_model_name:
+    description: 'AI model to use'
+    required: false
+    default: 'gemini-2.5-flash-preview-04-17'
+
+  vertexai_model_temperature:
+    description: 'AI generate props - temperature'
+    required: false
+    default: '0.8'
+
+  vertexai_model_top_p:
+    description: 'AI generate props - top_p'
+    required: false
+    default: '0.95'
+
+  vertexai_model_thinking_budget:
+    description: 'AI generate props - thinking_budget (0 ~ 24576)'
+    required: false
+    default: '0'
+
   google_cloud_region:
     description: 'Google Cloud region for Vertex AI'
     required: false
@@ -61,6 +81,10 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         VERTEXAI_CREDENTIALS_JSON: ${{ inputs.vertexai_credentials_json }}
         VERTEXAI_PROJECT_ID: ${{ inputs.vertexai_project_id }}
+        VERTEXAI_MODEL_NAME: ${{ inputs.vertexai_model_name }}
+        VERTEXAI_MODEL_TEMPERATURE: ${{ inputs.vertexai_model_temperature }}
+        VERTEXAI_MODEL_TOP_P: ${{ inputs.vertexai_model_top_p }}
+        VERTEXAI_MODEL_THINKING_BUDGET: ${{ inputs.vertexai_model_thinking_budget }}
         GOOGLE_CLOUD_REGION: ${{ inputs.google_cloud_region }}
         LANGUAGE: ${{ inputs.language }}
         INPUT_GUIDELINES_PATH: ${{ inputs.guidelines_path }}

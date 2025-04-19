@@ -3,32 +3,36 @@ import json
 import os
 import re
 import requests
-from github import Github
 from google import genai
-from google.genai import Client
 from google.genai.types import GenerateContentConfig, ThinkingConfig
-from google.oauth2 import service_account
-from google.oauth2 import service_account
 from typing import List, Dict, Any, Optional, Tuple
 from unidiff import Hunk
+
+# === Vertex AI init ===
+# Get credentials from environment variable and save to temp file
+credentials_json_str = os.environ["VERTEXAI_CREDENTIALS_JSON"]
+creds_file_path = "/tmp/google-credentials.json"
+
+# Save credentials to a temp file
+with open(creds_file_path, "w") as f:
+    f.write(credentials_json_str)
+
+# Set environment variable
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file_path
 
 PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"]
 LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
 
-credentials_json_str = os.environ["VERTEXAI_CREDENTIALS_JSON"]
-creds_file_path = "/tmp/google-credentials.json"
+# Initialize client with Google credentials
+client = genai.Client(project=PROJECT_ID, location=LOCATION)
 
-with open(creds_file_path, "w") as f:
-    f.write(credentials_json_str)
-
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file_path
-
-# === Google GenAI Client init ===
-client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
-
-# === GitHub Client init ===
+# === GitHub API setup ===
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-gh = Github(GITHUB_TOKEN)
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_HEADERS = {
+    'Authorization': f'token {GITHUB_TOKEN}',
+    'Accept': 'application/vnd.github.v3+json'
+}
 
 LANGUAGE = os.environ.get("LANGUAGE", "English")
 
@@ -43,6 +47,9 @@ class PRDetails:
 
 
 def get_pr_details() -> PRDetails:
+    """
+    Extract PR details from GitHub event data
+    """
     with open(os.environ["GITHUB_EVENT_PATH"], "r") as f:
         event_data = json.load(f)
 
@@ -54,17 +61,27 @@ def get_pr_details() -> PRDetails:
         repo_full_name = event_data["repository"]["full_name"]
 
     owner, repo = repo_full_name.split("/")
-    repo = gh.get_repo(repo_full_name)
-    pr = repo.get_pull(pull_number)
 
-    return PRDetails(owner, repo.name, pull_number, pr.title, pr.body)
+    # Get PR details
+    api_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/{pull_number}"
+    response = requests.get(api_url, headers=GITHUB_HEADERS)
+
+    if response.status_code != 200:
+        raise Exception(f"Failed to get PR details: {response.status_code}, {response.text}")
+
+    pr_data = response.json()
+
+    return PRDetails(owner, repo, pull_number, pr_data["title"], pr_data["body"] or "")
 
 
 def get_diff(owner: str, repo: str, pull_number: int) -> str:
+    """
+    Get the diff for a specific PR
+    """
     repo_name = f"{owner}/{repo}"
-    api_url = f"https://api.github.com/repos/{repo_name}/pulls/{pull_number}"
+    api_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pull_number}"
     headers = {
-        'Authorization': f'Bearer {GITHUB_TOKEN}',
+        'Authorization': f'token {GITHUB_TOKEN}',
         'Accept': 'application/vnd.github.v3.diff'
     }
     response = requests.get(f"{api_url}.diff", headers=headers)
@@ -73,21 +90,27 @@ def get_diff(owner: str, repo: str, pull_number: int) -> str:
 
 def check_summary_comment_exists(owner: str, repo: str, pull_number: int) -> bool:
     """
-    Check if a PR summary comment already exists in the PR review comments
+    Check if a PR summary comment already exists in the PR review comments or issue comments
     """
-    repo_obj = gh.get_repo(f"{owner}/{repo}")
-    pr = repo_obj.get_pull(pull_number)
-    review_comments = pr.get_review_comments()
+    # Get review comments
+    review_comments_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/{pull_number}/comments"
+    review_comments_response = requests.get(review_comments_url, headers=GITHUB_HEADERS)
 
-    for comment in review_comments:
-        if comment.body.startswith("### PR Summary"):
-            return True
+    if review_comments_response.status_code == 200:
+        review_comments = review_comments_response.json()
+        for comment in review_comments:
+            if comment.get("body", "").startswith("### PR Summary"):
+                return True
 
-    # Also check PR comments
-    issue_comments = pr.get_issue_comments()
-    for comment in issue_comments:
-        if comment.body.startswith("### PR Summary"):
-            return True
+    # Get issue comments
+    issue_comments_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/issues/{pull_number}/comments"
+    issue_comments_response = requests.get(issue_comments_url, headers=GITHUB_HEADERS)
+
+    if issue_comments_response.status_code == 200:
+        issue_comments = issue_comments_response.json()
+        for comment in issue_comments:
+            if comment.get("body", "").startswith("### PR Summary"):
+                return True
 
     return False
 
@@ -109,24 +132,25 @@ def is_follow_up_request(event_data: Dict[str, Any]) -> Tuple[bool, Optional[int
     if not in_reply_to_id:
         return False, None, None
 
-    # Get the original AI comment
+    # Get the original comment
     repo_full_name = event_data["repository"]["full_name"]
-    repo = gh.get_repo(repo_full_name)
+    comment_url = f"{GITHUB_API_URL}/repos/{repo_full_name}/pulls/comments/{in_reply_to_id}"
 
     try:
-        # Try to get the comment being replied to
-        original_comment = repo.get_comment(in_reply_to_id)
+        response = requests.get(comment_url, headers=GITHUB_HEADERS)
+        if response.status_code == 200:
+            original_comment = response.json()
 
-        # Check if the original comment was made by the bot
-        if "Vertex AI Code Review" in original_comment.body:
-            return True, in_reply_to_id, comment_body
-    except:
-        pass
+            # Check if the original comment was made by the bot
+            if "Vertex AI Code Review" in original_comment.get("body", ""):
+                return True, in_reply_to_id, comment_body
+    except Exception as e:
+        print(f"Error checking if comment is follow-up: {e}")
 
     return False, None, None
 
 
-def get_conversation_history(repo, comment_id: int) -> List[Dict[str, str]]:
+def get_conversation_history(owner: str, repo: str, comment_id: int) -> List[Dict[str, str]]:
     """
     Retrieve the conversation history for a specific comment thread
     """
@@ -134,32 +158,65 @@ def get_conversation_history(repo, comment_id: int) -> List[Dict[str, str]]:
 
     try:
         # Get the original comment
-        original_comment = repo.get_comment(comment_id)
-        conversation.append({
-            "role": "assistant",
-            "content": original_comment.body
-        })
+        comment_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/comments/{comment_id}"
+        response = requests.get(comment_url, headers=GITHUB_HEADERS)
 
-        # Get replies to this comment
-        replies = list(original_comment.get_reactions())
-        for reply in replies:
-            if reply.user.login == "github-actions[bot]":
-                conversation.append({
-                    "role": "assistant",
-                    "content": reply.body
-                })
-            else:
-                conversation.append({
-                    "role": "user",
-                    "content": reply.body
-                })
+        if response.status_code == 200:
+            original_comment = response.json()
+            conversation.append({
+                "role": "assistant",
+                "content": original_comment.get("body", "")
+            })
+
+            # Get replies to this comment - GitHub API doesn't directly support this
+            # We need to get all comments in the PR and filter ones that mention this comment
+            pull_number = get_pull_number_from_comment(original_comment)
+            if pull_number:
+                all_comments_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/{pull_number}/comments"
+                all_comments_response = requests.get(all_comments_url, headers=GITHUB_HEADERS)
+
+                if all_comments_response.status_code == 200:
+                    all_comments = all_comments_response.json()
+
+                    # Filter replies (based on body content or creation time)
+                    for comment in all_comments:
+                        # Skip the original comment
+                        if comment.get("id") == comment_id:
+                            continue
+
+                        # Check if this is a reply (contains reference to original comment or created later)
+                        body = comment.get("body", "")
+                        if f"#{comment_id}" in body or f"comment {comment_id}" in body:
+                            user_type = "assistant" if "github-actions[bot]" in comment.get("user", {}).get("login",
+                                                                                                            "") else "user"
+                            conversation.append({
+                                "role": user_type,
+                                "content": body
+                            })
     except Exception as e:
         print(f"Error getting conversation history: {e}")
 
     return conversation
 
 
+def get_pull_number_from_comment(comment: Dict[str, Any]) -> Optional[int]:
+    """
+    Extract pull request number from a comment
+    """
+    try:
+        # Pull request URL format: "https://api.github.com/repos/owner/repo/pulls/123"
+        if "pull_request_url" in comment:
+            pr_url = comment["pull_request_url"]
+            return int(pr_url.split("/")[-1])
+    except Exception:
+        pass
+    return None
+
+
 def create_prompt(file_path: str, hunk: Hunk, pr_details: PRDetails) -> str:
+    """
+    Create prompt for AI to review code changes, with focus on design principles
+    """
     language_instruction = {
         "English": "✍️ Answer must be in English.",
         "Korean": "✍️ 답변은 반드시 한국어로 해주세요.",
@@ -256,6 +313,9 @@ When evaluating this code, consider:
 
 def create_followup_prompt(question: str, conversation_history: List[Dict[str, str]], file_path: str,
                            hunk_content: str = None, pr_details: PRDetails = None) -> str:
+    """
+    Create a prompt for follow-up responses to developer questions
+    """
     language_instruction = {
         "English": "✍️ Answer must be in English.",
         "Korean": "✍️ 답변은 반드시 한국어로 해주세요.",
@@ -321,6 +381,9 @@ Please provide a helpful, direct response to the developer's question. Maintain 
 
 
 def get_ai_response(prompt: str, include_summary: bool = True) -> Dict[str, Any]:
+    """
+    Get code review response from AI model
+    """
     config = GenerateContentConfig(
         temperature=0.8,
         top_p=0.95,
@@ -410,13 +473,13 @@ def get_ai_response(prompt: str, include_summary: bool = True) -> Dict[str, Any]
             return {"response": text}
 
     except Exception as e:
-        print("AI response parse error:", e)
+        print(f"AI response parse error: {e}")
         return {"reviews": []}
 
 
 def get_ai_followup_response(prompt: str) -> str:
     """
-    Get a conversational followup response from the AI
+    Get a conversational followup response from the AI for discussions about code
     """
     config = GenerateContentConfig(
         temperature=0.8,
@@ -458,11 +521,14 @@ def get_ai_followup_response(prompt: str) -> str:
         )
         return response.text.strip()
     except Exception as e:
-        print("AI followup response error:", e)
+        print(f"AI followup response error: {e}")
         return "I apologize, but I encountered an error processing your question. Could you please rephrase or simplify your question?"
 
 
 def create_comment(file_path: str, hunk: Hunk, ai_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Create comment objects from AI response for GitHub API
+    """
     comments = []
     diff_lines = hunk.content.splitlines()
     added_line_indices = [i for i, line in enumerate(diff_lines) if line.startswith("+") and not line.startswith("+++")]
@@ -487,43 +553,68 @@ def create_comment(file_path: str, hunk: Hunk, ai_response: Dict[str, Any]) -> L
                     "position": position
                 })
         except Exception as e:
-            print("Comment creation error:", e)
+            print(f"Comment creation error: {e}")
     return comments
 
 
 def create_review_comment(owner: str, repo: str, pull_number: int, comments: List[Dict[str, Any]]):
-    repo = gh.get_repo(f"{owner}/{repo}")
-    pr = repo.get_pull(pull_number)
-    pr.create_review(body="Vertex AI Code Review", comments=comments, event="COMMENT")
+    """
+    Create a review with multiple comments using direct GitHub API call
+    """
+    url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/{pull_number}/reviews"
+    payload = {
+        "body": "Vertex AI Code Review",
+        "event": "COMMENT",
+        "comments": comments
+    }
+
+    response = requests.post(url, headers=GITHUB_HEADERS, json=payload)
+
+    if response.status_code >= 400:
+        print(f"Error creating review comment: {response.status_code}, {response.text}")
+    else:
+        print(f"Successfully created review with {len(comments)} comments")
 
 
 def reply_to_comment(owner: str, repo: str, comment_id: int, reply_text: str):
     """
-    Add a reply to an existing comment thread using PyGithub instead of direct API calls
+    Add a reply to an existing comment thread using direct GitHub API
     """
-    try:
-        repo_obj = gh.get_repo(f"{owner}/{repo}")
+    url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/comments/{comment_id}/replies"
+    payload = {"body": reply_text}
 
-        comment = repo_obj.get_comment(comment_id)
+    response = requests.post(url, headers=GITHUB_HEADERS, json=payload)
 
-        pr_url_parts = comment.pull_request_url.split('/')
-        pull_number = int(pr_url_parts[-1])
+    if response.status_code >= 400:
+        print(f"Error replying to comment: {response.status_code}, {response.text}")
 
-        pr = repo_obj.get_pull(pull_number)
+        # Fallback: Find PR number from the comment
+        comment_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/comments/{comment_id}"
+        comment_response = requests.get(comment_url, headers=GITHUB_HEADERS)
 
-        pr.create_review_comment(
-            body=f"**In reply to [comment](#{comment_id}):**\n\n{reply_text}",
-            commit_id=pr.get_commits().reversed[0].sha,  # 최신 커밋에 달기
-            path=comment.path,
-            position=comment.position or 1  # position이 None이면 기본값 1 사용
-        )
+        if comment_response.status_code == 200:
+            comment_data = comment_response.json()
+            pull_number = get_pull_number_from_comment(comment_data)
 
+            if pull_number:
+                # Create issue comment as fallback
+                issue_comment_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/issues/{pull_number}/comments"
+                issue_payload = {"body": f"**In reply to [comment](#{comment_id}):**\n\n{reply_text}"}
+
+                issue_response = requests.post(issue_comment_url, headers=GITHUB_HEADERS, json=issue_payload)
+
+                if issue_response.status_code == 201:
+                    print(f"Created fallback reply as issue comment")
+                else:
+                    print(f"Failed to create fallback comment: {issue_response.status_code}, {issue_response.text}")
+    else:
         print(f"Successfully replied to comment {comment_id}")
-    except Exception as e:
-        print(f"Error replying to comment: {e}")
 
 
 def parse_diff(diff_str: str) -> List[Dict[str, Any]]:
+    """
+    Parse the git diff into a structured format
+    """
     files, current_file, current_hunk = [], None, None
     for line in diff_str.splitlines():
         if line.startswith('diff --git'):
@@ -549,15 +640,16 @@ def get_file_and_hunk_for_comment(owner: str, repo: str, pull_number: int, comme
     """
     Get the file path and hunk content related to a specific comment
     """
-    repo_obj = gh.get_repo(f"{owner}/{repo}")
-    pr = repo_obj.get_pull(pull_number)
-
     try:
         # Get the review comment
-        for comment in pr.get_review_comments():
-            if comment.id == comment_id:
-                file_path = comment.path
+        comment_url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls/comments/{comment_id}"
+        comment_response = requests.get(comment_url, headers=GITHUB_HEADERS)
 
+        if comment_response.status_code == 200:
+            comment_data = comment_response.json()
+            file_path = comment_data.get("path")
+
+            if file_path:
                 # Get the diff for the file
                 diff = get_diff(owner, repo, pull_number)
                 parsed_diff = parse_diff(diff)
@@ -580,6 +672,9 @@ def get_file_and_hunk_for_comment(owner: str, repo: str, pull_number: int, comme
 
 
 def analyze_code(parsed_diff: List[Dict[str, Any]], pr_details: PRDetails) -> List[Dict[str, Any]]:
+    """
+    Analyze code changes and generate review comments
+    """
     all_comments = []
 
     # Check if summary comment already exists in PR
@@ -620,11 +715,8 @@ def handle_followup_question(event_data: Dict[str, Any], pr_details: PRDetails) 
 
     print(f"Handling follow-up question for comment {comment_id}: {question}")
 
-    # Get the repository
-    repo_obj = gh.get_repo(f"{pr_details.owner}/{pr_details.repo}")
-
     # Get conversation history
-    conversation_history = get_conversation_history(repo_obj, comment_id)
+    conversation_history = get_conversation_history(pr_details.owner, pr_details.repo, comment_id)
 
     # Get the file path and hunk content related to the comment
     file_path, hunk_content = get_file_and_hunk_for_comment(
@@ -648,6 +740,9 @@ def handle_followup_question(event_data: Dict[str, Any], pr_details: PRDetails) 
 
 
 def main():
+    """
+    Main function to handle PR review workflow
+    """
     pr_details = get_pr_details()
 
     # Load the GitHub event data
@@ -666,7 +761,7 @@ def main():
 
     # Otherwise, proceed with standard code review
     if event_name != "issue_comment":
-        print("Unsupported event:", event_name)
+        print(f"Unsupported event: {event_name}")
         return
 
     diff = get_diff(pr_details.owner, pr_details.repo, pr_details.pull_number)

@@ -1248,6 +1248,8 @@ def main():
             paths_str = ", ".join(CUSTOM_GUIDELINES_PATHS)
             review_body += f" (Using guidelines from: {paths_str})"
 
+        print(f"{review_body=}")
+        print(f"{comments=}")
         pr.create_review(body=review_body, comments=comments, event="COMMENT")
         print(f"Successfully created review with {len(comments)} comments")
 

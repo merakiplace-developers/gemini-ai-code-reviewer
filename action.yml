@@ -7,55 +7,55 @@ branding:
   color: 'green'
 
 inputs:
-  github_token:
+  GITHUB_TOKEN:
     description: 'GitHub token for API access'
     required: true
     default: ${{ github.token }}
 
-  vertexai_credentials_json:
+  VERTEXAI_CREDENTIALS_JSON:
     description: 'Vertex AI service account credentials JSON string'
     required: true
 
-  vertexai_project_id:
+  VERTEXAI_PROJECT_ID:
     description: 'Vertex AI project ID'
     required: true
 
-  vertexai_model_name:
+  VERTEXAI_MODEL_NAME:
     description: 'AI model to use'
     required: false
     default: 'gemini-2.5-flash-preview-04-17'
 
-  vertexai_model_temperature:
+  VERTEXAI_MODEL_TEMPERATURE:
     description: 'AI generate props - temperature'
     required: false
     default: '0.8'
 
-  vertexai_model_top_p:
+  VERTEXAI_MODEL_TOP_P:
     description: 'AI generate props - top_p'
     required: false
     default: '0.95'
 
-  vertexai_model_thinking_budget:
+  VERTEXAI_MODEL_THINKING_BUDGET:
     description: 'AI generate props - thinking_budget (0 ~ 24576)'
     required: false
     default: '0'
 
-  google_cloud_region:
+  GOOGLE_CLOUD_REGION:
     description: 'Google Cloud region for Vertex AI'
     required: false
     default: 'us-central1'
 
-  guidelines_path:
+  GUIDELINES_PATH:
     description: 'Comma-separated list of paths to coding guideline files (relative to project root)'
     required: false
     default: ''
 
-  exclude:
+  EXCLUDE:
     description: 'Comma-separated list of glob patterns for files to exclude from review'
     required: false
     default: '*.md,*.txt,package-lock.json,yarn.lock,*.lock'
 
-  language:
+  LANGUAGE:
     description: 'Language for AI responses (English, Korean, Japanese, etc.)'
     required: false
     default: 'English'
@@ -78,15 +78,15 @@ runs:
     - name: Run Vertex AI Code Reviewer
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
-        VERTEXAI_CREDENTIALS_JSON: ${{ inputs.vertexai_credentials_json }}
-        VERTEXAI_PROJECT_ID: ${{ inputs.vertexai_project_id }}
-        VERTEXAI_MODEL_NAME: ${{ inputs.vertexai_model_name }}
-        VERTEXAI_MODEL_TEMPERATURE: ${{ inputs.vertexai_model_temperature }}
-        VERTEXAI_MODEL_TOP_P: ${{ inputs.vertexai_model_top_p }}
-        VERTEXAI_MODEL_THINKING_BUDGET: ${{ inputs.vertexai_model_thinking_budget }}
-        GOOGLE_CLOUD_REGION: ${{ inputs.google_cloud_region }}
-        LANGUAGE: ${{ inputs.language }}
-        INPUT_GUIDELINES_PATH: ${{ inputs.guidelines_path }}
-        INPUT_EXCLUDE: ${{ inputs.exclude }}
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        VERTEXAI_CREDENTIALS_JSON: ${{ inputs.VERTEXAI_CREDENTIALS_JSON }}
+        VERTEXAI_PROJECT_ID: ${{ inputs.VERTEXAI_PROJECT_ID }}
+        VERTEXAI_MODEL_NAME: ${{ inputs.VERTEXAI_MODEL_NAME }}
+        VERTEXAI_MODEL_TEMPERATURE: ${{ inputs.VERTEXAI_MODEL_TEMPERATURE }}
+        VERTEXAI_MODEL_TOP_P: ${{ inputs.VERTEXAI_MODEL_TOP_P }}
+        VERTEXAI_MODEL_THINKING_BUDGET: ${{ inputs.VERTEXAI_MODEL_THINKING_BUDGET }}
+        GOOGLE_CLOUD_REGION: ${{ inputs.GOOGLE_CLOUD_REGION }}
+        LANGUAGE: ${{ inputs.LANGUAGE }}
+        INPUT_GUIDELINES_PATH: ${{ inputs.GUIDELINES_PATH }}
+        INPUT_EXCLUDE: ${{ inputs.EXCLUDE }}
       run: python ${{ github.action_path }}/review_code_gemini.py

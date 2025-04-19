@@ -499,33 +499,28 @@ def create_review_comment(owner: str, repo: str, pull_number: int, comments: Lis
 
 def reply_to_comment(owner: str, repo: str, comment_id: int, reply_text: str):
     """
-    Add a reply to an existing comment thread
+    Add a reply to an existing comment thread using PyGithub instead of direct API calls
     """
-    repo_obj = gh.get_repo(f"{owner}/{repo}")
+    try:
+        repo_obj = gh.get_repo(f"{owner}/{repo}")
 
-    # Use GitHub API to reply to the comment
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/comments/{comment_id}/replies"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    data = {"body": reply_text}
+        comment = repo_obj.get_comment(comment_id)
 
-    response = requests.post(url, headers=headers, json=data)
+        pr_url_parts = comment.pull_request_url.split('/')
+        pull_number = int(pr_url_parts[-1])
 
-    if response.status_code >= 400:
-        print(f"Error replying to comment: {response.status_code}, {response.text}")
+        pr = repo_obj.get_pull(pull_number)
 
-        # Fallback: create a new comment mentioning the original
-        try:
-            issue_comment = repo_obj.get_issue(pull_number).create_comment(
-                f"**In reply to [comment]({comment_id}):**\n\n{reply_text}"
-            )
-            print(f"Created fallback reply comment: {issue_comment.id}")
-        except Exception as e:
-            print(f"Failed to create fallback comment: {e}")
-    else:
+        pr.create_review_comment(
+            body=f"**In reply to [comment](#{comment_id}):**\n\n{reply_text}",
+            commit_id=pr.get_commits().reversed[0].sha,  # 최신 커밋에 달기
+            path=comment.path,
+            position=comment.position or 1  # position이 None이면 기본값 1 사용
+        )
+
         print(f"Successfully replied to comment {comment_id}")
+    except Exception as e:
+        print(f"Error replying to comment: {e}")
 
 
 def parse_diff(diff_str: str) -> List[Dict[str, Any]]:

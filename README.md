@@ -78,12 +78,17 @@ jobs:
 ```
 
 ## Inputs
+This action accepts the following inputs
 
 | Input | Description | Required | Default |
 | ----- | ----------- | -------- | ------- |
 | `github_token` | GitHub token for API access | Yes | `${{ github.token }}` |
 | `vertexai_credentials_json` | Vertex AI service account credentials JSON | Yes | N/A |
 | `vertexai_project_id` | Vertex AI project ID | Yes | N/A |
+| `vertexai_model_name` | Vertex AI model name | No | `gemini-2.5-flash-preview-04-17` |
+| `vertexai_model_temperature` | AI generate props - temperature (0-1) | No | `0.8` |
+| `vertexai_model_top_p` | AI generate props - top_p (0-1) | No | `0.95` |
+| `vertexai_model_thinking_budget` | AI generate props - thinking_budget (0-24576) | No | `0` |
 | `google_cloud_region` | Google Cloud region for Vertex AI | No | `us-central1` |
 | `guidelines_path` | Comma-separated list of paths to coding guideline files | No | `""` |
 | `exclude` | Comma-separated list of glob patterns for files to exclude | No | `*.md,*.txt,package-lock.json,yarn.lock,*.lock` |

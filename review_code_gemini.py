@@ -874,8 +874,35 @@ def get_pr_details() -> PRDetails:
 
 
 def get_diff(pr) -> str:
-    """Get the diff for a specific PR"""
-    return pr.get_diff()
+    """
+    Get the diff for a specific PR using direct GitHub API call.
+    This bypasses PyGithub's get_diff method which might not be reliable.
+    """
+    import requests
+
+    # Extract PR details
+    repo_name = pr.base.repo.full_name
+    pr_number = pr.number
+
+    # Construct API URL for the PR diff
+    url = f"https://api.github.com/repos/{repo_name}/pulls/{pr_number}"
+
+    # Set up headers with authentication
+    headers = {
+        "Accept": "application/vnd.github.v3.diff",
+        "Authorization": f"token {GITHUB_TOKEN}"
+    }
+
+    try:
+        # Make the API request
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise exception for HTTP errors
+
+        return response.text
+    except Exception as e:
+        print(f"Error fetching diff from GitHub API: {e}")
+        # Return empty string on error to avoid breaking the workflow
+        return ""
 
 
 def check_summary_comment_exists(repo, pr) -> bool:

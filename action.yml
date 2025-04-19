@@ -1,25 +1,44 @@
-name: "Vertex AI PR Reviewer"
-description: "This GitHub Action automatically reviews PRs using Google's Gemini via Vertex AI."
+name: 'AI Code Review using Vertex AI'
+description: 'Automatically review code in pull requests using Vertex AI'
 author: 'merakiplace-developers'
 
+branding:
+  icon: 'check-square'
+  color: 'green'
+
 inputs:
-  GITHUB_TOKEN:
-    description: 'GitHub token to interact with the repository'
+  github_token:
+    description: 'GitHub token for API access'
     required: true
-  VERTEXAI_CREDENTIALS_JSON:
-    description: 'Google Cloud service account credentials (JSON)'
+    default: ${{ github.token }}
+
+  vertexai_credentials_json:
+    description: 'Vertex AI service account credentials JSON string'
     required: true
-  VERTEXAI_PROJECT_ID:
-    description: 'GCP Project ID for Vertex AI'
+
+  vertexai_project_id:
+    description: 'Vertex AI project ID'
     required: true
-  LANGUAGE:
-    description: 'Language of the AI review comments'
+
+  google_cloud_region:
+    description: 'Google Cloud region for Vertex AI'
     required: false
-    default: 'English'
-  EXCLUDE:
-    description: 'Comma-separated list of file patterns to exclude'
+    default: 'us-central1'
+
+  guidelines_path:
+    description: 'Comma-separated list of paths to coding guideline files (relative to project root)'
     required: false
     default: ''
+
+  exclude:
+    description: 'Comma-separated list of glob patterns for files to exclude from review'
+    required: false
+    default: '*.md,*.txt,package-lock.json,yarn.lock,*.lock'
+
+  language:
+    description: 'Language for AI responses (English, Korean, Japanese, etc.)'
+    required: false
+    default: 'English'
 
 runs:
   using: 'composite'
@@ -39,9 +58,11 @@ runs:
     - name: Run Vertex AI Code Reviewer
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
-        VERTEXAI_CREDENTIALS_JSON: ${{ inputs.VERTEXAI_CREDENTIALS_JSON }}
-        VERTEXAI_PROJECT_ID: ${{ inputs.VERTEXAI_PROJECT_ID }}
-        INPUT_EXCLUDE: ${{ inputs.EXCLUDE }}
-        LANGUAGE: ${{ inputs.LANGUAGE }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        VERTEXAI_CREDENTIALS_JSON: ${{ inputs.vertexai_credentials_json }}
+        VERTEXAI_PROJECT_ID: ${{ inputs.vertexai_project_id }}
+        GOOGLE_CLOUD_REGION: ${{ inputs.google_cloud_region }}
+        LANGUAGE: ${{ inputs.language }}
+        INPUT_GUIDELINES_PATH: ${{ inputs.guidelines_path }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
       run: python ${{ github.action_path }}/review_code_gemini.py

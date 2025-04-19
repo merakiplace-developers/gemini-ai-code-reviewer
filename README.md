@@ -1,189 +1,126 @@
-## ✨ Vertex AI 기반 Gemini PR Reviewer
+# AI Code Review Action
 
-A GitHub Action that **automatically reviews pull requests using Google’s Gemini AI via Vertex AI**.  
-Built as a **custom fork** of [`truongnh1992/gemini-ai-code-reviewer`](https://github.com/truongnh1992/gemini-ai-code-reviewer), this version uses **Google Cloud’s secure Vertex AI credentials** instead of Gemini API keys.
+This GitHub Action automatically reviews pull requests using Google's Vertex AI. It provides intelligent, context-aware code reviews based on software design principles and best practices for various application types.
 
----
+## Features
 
-## 🎯 What’s Different?
+- Automatically reviews pull requests when opened or updated
+- Responds to follow-up questions on review comments
+- Supports multiple programming languages and frameworks
+- Detects application type (React/Next.js, React Native, Django, Spring, Celery)
+- Customizable code review guidelines
+- Multi-language support for review comments
 
-This version is designed for teams or enterprises that use **Google Cloud credits** and want:
-- **Better security** via service accounts & IAM
-- **No manual API key management**
-- **Higher quotas, more flexibility**
-- **Supports gemini-2.0-flash / Flash models on Vertex AI**
+## Supported Application Types
 
----
+- React/Next.js web applications
+- React Native mobile applications
+- Django/Python backend applications
+- Spring/Kotlin backend applications
+- Celery asynchronous tasks
+- General purpose (default for any other code)
 
-## ⚙️ Features
+## Setup
 
-- ✅ Automatic code review comments on pull requests
-- 🧠 Powered by Vertex AI (Gemini)
-- 🛡️ Secure: Uses GCP service account & IAM, not plain API key
-- ✂️ File exclusions supported (e.g., `*.md,*.lock`)
+### 1. Create Vertex AI Credentials
 
----
+1. Set up a Google Cloud Platform account
+2. Create a Vertex AI project
+3. Create a service account with Vertex AI access
+4. Generate a JSON key for the service account
 
-## 🚀 How to Use
+### 2. Add Secrets to Your Repository
 
-### 1. Google Cloud Setup
-- Create a **service account** in Google Cloud Console
-- Grant it the `Vertex AI User` role
-- (Optional) Add `Storage Object Viewer` if needed
-- Create and download a **JSON key**
+Add the following secrets to your GitHub repository:
 
-### 2. GitHub Secrets (in your target repo)
-| Secret Name                  | Description                        |
-|-----------------------------|------------------------------------|
-| `VERTEXAI_CREDENTIALS_JSON` | Paste the full content of the key |
-| `VERTEXAI_PROJECT_ID`       | Your GCP project ID               |
+- `VERTEXAI_CREDENTIALS_JSON`: The entire JSON key content for your service account
+- `VERTEXAI_PROJECT_ID`: Your Google Cloud project ID
 
----
+### 3. Create Custom Guidelines (Optional)
 
-### 3. Create Workflow File
+Create one or more markdown files with your team's coding guidelines. For example:
 
-`.github/workflows/use-reviewer.yaml`
+- `docs/CODING_GUIDELINES.md`: General coding practices
+- `docs/REACT_GUIDELINES.md`: React/Next.js specific guidelines
+- `docs/ARCHITECTURE.md`: Project architecture guidelines
+
+### 4. Add the Workflow File
+
+Create `.github/workflows/code-review.yml` in your repository:
 
 ```yaml
-name: Use Vertex AI PR Reviewer
+name: AI Code Review
 
 on:
+  pull_request:
+    types: [opened, synchronize]
   issue_comment:
     types: [created]
 
-permissions: write-all
-
 jobs:
-  call-reviewer:
+  review:
     runs-on: ubuntu-latest
-    if: |
-      github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/gemini-review')
     steps:
-      - name: PR Info
-        run: |
-          echo "Comment: ${{ github.event.comment.body }}"
-          echo "Issue Number: ${{ github.event.issue.number }}"
-          echo "Repository: ${{ github.repository }}"
-
-      - name: Checkout Repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Get PR Details
-        id: pr
-        run: |
-          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
-          echo "head_sha=$(echo $PR_JSON | jq -r .head.sha)" >> $GITHUB_OUTPUT
-          echo "base_sha=$(echo $PR_JSON | jq -r .base.sha)" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: merakiplace-developers/gemini-ai-code-reviewer@main
+      - name: AI Code Review
+        uses: your-org/ai-code-reviewer@v1
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERTEXAI_CREDENTIALS_JSON: ${{ secrets.VERTEXAI_CREDENTIALS_JSON }}
-          VERTEXAI_PROJECT_ID: ${{ secrets.VERTEXAI_PROJECT_ID }}
-          EXCLUDE: "*.md,*.txt,package-lock.json,*.yml,*.yaml"
-          LANGUAGE: "Korean"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          vertexai_credentials_json: ${{ secrets.VERTEXAI_CREDENTIALS_JSON }}
+          vertexai_project_id: ${{ secrets.VERTEXAI_PROJECT_ID }}
+          google_cloud_region: "us-central1"
+          guidelines_path: "docs/CODING_GUIDELINES.md,docs/REACT_GUIDELINES.md"
+          exclude: "*.md,*.txt,package-lock.json,yarn.lock"
+          language: "English"
 ```
 
----
+## Inputs
 
-### 4. Trigger Review
+| Input | Description | Required | Default |
+| ----- | ----------- | -------- | ------- |
+| `github_token` | GitHub token for API access | Yes | `${{ github.token }}` |
+| `vertexai_credentials_json` | Vertex AI service account credentials JSON | Yes | N/A |
+| `vertexai_project_id` | Vertex AI project ID | Yes | N/A |
+| `google_cloud_region` | Google Cloud region for Vertex AI | No | `us-central1` |
+| `guidelines_path` | Comma-separated list of paths to coding guideline files | No | `""` |
+| `exclude` | Comma-separated list of glob patterns for files to exclude | No | `*.md,*.txt,package-lock.json,yarn.lock,*.lock` |
+| `language` | Language for AI responses | No | `English` |
 
-1. Create or update a pull request
-2. Leave a comment: `/gemini-review`
-3. Done! The bot will automatically analyze and leave comments on your code 👀✨
+## Supported Languages
 
----
+- English (default)
+- Korean (한국어) 
+- Japanese (日本語)
+- Chinese (中文)
+- And many more (see code for full list)
 
-## 🤖 How It Works
+## Customizing Guidelines
 
-1. Gets the PR diff from GitHub API
-2. Sends code hunks to Gemini (via Vertex AI)
-3. Parses AI response
-4. Posts review comments back on the PR
+For best results, structure your guideline files with clear headers and bullet points. The AI will automatically extract rules and principles from these files and prioritize them during code review.
 
----
+Example format:
 
+```markdown
+# Code Organization
 
+- Keep files under 300 lines of code
+- Follow the single responsibility principle
+- Use meaningful names for variables and functions
 
----
+# Error Handling
 
-### 🗣️ Multilingual Support
-
-You can customize the language of the AI review comments using the `LANGUAGE` input.
-
-#### ✅ Supported Languages
-> Just set the `LANGUAGE` input (e.g. `"Korean"`, `"Japanese"`) in your workflow, and the reviewer will respond accordingly!
-
-```json
-{
-  "English": "✍️ Answer must be in English.",
-  "Korean": "✍️ 답변은 반드시 한국어로 해주세요.",
-  "Japanese": "✍️ 回答は必ず日本語でお願いします。",
-  "Chinese": "✍️ 回答必须使用中文。",
-  "French": "✍️ Veuillez répondre en français.",
-  "German": "✍️ Bitte antworten Sie auf Deutsch.",
-  "Spanish": "✍️ Por favor responde en español.",
-  "Portuguese": "✍️ Por favor, responda em português.",
-  "Russian": "✍️ Пожалуйста, отвечайте на русском.",
-  "Italian": "✍️ Si prega di rispondere in italiano.",
-  "Dutch": "✍️ Antwoord alstublieft in het Nederlands.",
-  "Arabic": "✍️ الرجاء الرد باللغة العربية.",
-  "Hindi": "✍️ कृपया हिंदी में उत्तर दें।",
-  "Bengali": "✍️ অনুগ্রহ করে বাংলায় উত্তর দিন।",
-  "Turkish": "✍️ Lütfen Türkçe cevap verin.",
-  "Vietnamese": "✍️ Vui lòng trả lời bằng tiếng Việt.",
-  "Thai": "✍️ กรุณาตอบเป็นภาษาไทย",
-  "Polish": "✍️ Proszę odpowiedzieć po polsku.",
-  "Ukrainian": "✍️ Будь ласка, відповідайте українською.",
-  "Czech": "✍️ Prosím odpovězte česky.",
-  "Swedish": "✍️ Svara gärna på svenska.",
-  "Finnish": "✍️ Vastaa suomeksi.",
-  "Norwegian": "✍️ Vennligst svar på norsk.",
-  "Danish": "✍️ Svar venligst på dansk.",
-  "Romanian": "✍️ Vă rugăm să răspundeți în română.",
-  "Hungarian": "✍️ Kérjük, válaszoljon magyarul.",
-  "Hebrew": "✍️ אנא השב בעברית.",
-  "Greek": "✍️ Παρακαλώ απαντήστε στα ελληνικά.",
-  "Malay": "✍️ Sila jawab dalam Bahasa Melayu.",
-  "Indonesian": "✍️ Silakan jawab dalam Bahasa Indonesia.",
-  "Filipino": "✍️ Mangyaring sumagot sa wikang Filipino.",
-  "Persian": "✍️ لطفاً به زبان فارسی پاسخ دهید.",
-  "Swahili": "✍️ Tafadhali jibu kwa Kiswahili.",
-  "Slovak": "✍️ Prosím, odpovedzte po slovensky.",
-  "Serbian": "✍️ Molimo odgovorite na srpskom.",
-  "Croatian": "✍️ Molimo odgovorite na hrvatskom.",
-  "Bulgarian": "✍️ Моля, отговорете на български.",
-  "Slovenian": "✍️ Prosimo, odgovorite v slovenščini.",
-  "Lithuanian": "✍️ Prašome atsakyti lietuviškai.",
-  "Latvian": "✍️ Lūdzu, atbildiet latviski.",
-  "Estonian": "✍️ Palun vastake eesti keeles."
-}
+- Always handle errors explicitly
+- Provide clear error messages
+- Use try/catch blocks for async operations
 ```
 
-> 🧠 The instruction will be automatically prepended to the prompt sent to Gemini!
+## Follow-up Questions
 
-## 📦 Models Supported
+Developers can ask follow-up questions by replying to review comments. The AI will provide additional context and explanations based on the code being reviewed and the custom guidelines.
 
-| Model Name                  | Description                                  |
-|----------------------------|----------------------------------------------|
-| `gemini-2.0-flash`         | Powerful, better reasoning                   |
+## License
 
-Set your desired model in the Python code (`GenerativeModel("...")`).
-
----
-
-## 🙏 Credits
-
-- Based on [`truongnh1992/gemini-ai-code-reviewer`](https://github.com/truongnh1992/gemini-ai-code-reviewer)
-- Vertex AI version customized for GCP users by [@merakiplace-developers](https://github.com/merakiplace-developers)
-
----
-
-## 📄 License
-
-MIT License – See [LICENSE](./LICENSE)
+MIT

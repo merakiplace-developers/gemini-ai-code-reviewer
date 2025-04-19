@@ -711,22 +711,12 @@ def get_ai_response(prompt: str, include_summary: bool = True, app_type: str = '
 
         system_instruction = system_instruction + guidelines_text
 
-    # Configure AI request
-    config = GenerateContentConfig(
-        temperature=VERTEXAI_MODEL_TEMPERATURE,
-        top_p=VERTEXAI_MODEL_TOP_P,
-        system_instruction=system_instruction,
-        thinking_config=ThinkingConfig(thinking_budget=VERTEXAI_MODEL_THINKING_BUDGET),
-    )
-
     try:
         # Get AI response
-        response = client.models.generate_content(
-            model=VERTEXAI_MODEL_NAME,
-            contents=prompt,
-            config=config,
+        text = generate_ai_content(
+            prompt=prompt,
+            system_instruction=system_instruction
         )
-        text = response.text.strip()
 
         # Clean up JSON formatting if present
         if text.startswith('```json'):
@@ -834,24 +824,31 @@ def get_ai_followup_response(prompt: str, app_type: str = 'default') -> str:
     Your responses should be actionable, educational and maintain a professional, collaborative tone.
     """
 
-    # Configure AI request
-    config = GenerateContentConfig(
-        temperature=0.8,
-        top_p=0.95,
-        system_instruction=system_instruction,
-        thinking_config=ThinkingConfig(thinking_budget=1024),
-    )
-
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-04-17",
-            contents=prompt,
-            config=config,
+        # Get AI response
+        return generate_ai_content(
+            prompt=prompt,
+            system_instruction=system_instruction
         )
-        return response.text.strip()
     except Exception as e:
         print(f"AI followup response error: {e}")
         return "I apologize, but I encountered an error processing your question. Could you please rephrase or simplify your question?"
+
+
+def generate_ai_content(prompt: str, system_instruction: str):
+    # Configure AI request
+    config = GenerateContentConfig(
+        temperature=VERTEXAI_MODEL_TEMPERATURE,
+        top_p=VERTEXAI_MODEL_TOP_P,
+        system_instruction=system_instruction,
+        thinking_config=ThinkingConfig(thinking_budget=VERTEXAI_MODEL_THINKING_BUDGET),
+    )
+    response = client.models.generate_content(
+        model=VERTEXAI_MODEL_NAME,
+        contents=prompt,
+        config=config,
+    )
+    return response.text.strip()
 
 
 # === GitHub Interaction ===

@@ -2,11 +2,12 @@ import fnmatch
 import json
 import os
 import re
+import requests
 import yaml
 from github import Github
 from google import genai
 from google.genai.types import GenerateContentConfig, ThinkingConfig
-from typing import List, Dict, Any, Optional, Tuple, Set
+from typing import List, Dict, Any, Optional, Tuple
 from unidiff import Hunk
 
 # === Prompt Templates and System Instructions ===
@@ -878,7 +879,6 @@ def get_diff(pr) -> str:
     Get the diff for a specific PR using direct GitHub API call.
     This bypasses PyGithub's get_diff method which might not be reliable.
     """
-    import requests
 
     # Extract PR details
     repo_name = pr.base.repo.full_name

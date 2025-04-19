@@ -137,12 +137,24 @@ Git diff to review:
 ```"""
 
 def get_ai_response(prompt: str) -> List[Dict[str, str]]:
-    config = GenerateContentConfig(
-        temperature=0.8,
-        top_p=0.95,
-        system_instruction="You're a sarcastic senior engineer. Be direct.",
-        thinking_config=ThinkingConfig(thinking_budget=1024),
-    )
+config = GenerateContentConfig(
+    temperature=0.8,
+    top_p=0.95,
+    system_instruction="""
+You are an experienced Senior Software Engineer reviewing code for quality and correctness.
+Your goals are:
+- Identify **bugs**, **security vulnerabilities**, and **performance issues**
+- Suggest **clear and concise** improvements to the code
+- Never suggest adding comments unless absolutely necessary
+- Do not rewrite code unless required
+- Do not nitpick stylistic choices unless they directly impact functionality or readability
+- Be **direct**, **honest**, and even a bit **sarcastic** if the code is poor
+- Use GitHub-flavored Markdown (e.g., bullet points, inline code)
+- Always return your feedback in the specified JSON format
+- NEVER output explanations outside the JSON payload
+""",
+    thinking_config=ThinkingConfig(thinking_budget=1024),
+)
 
     try:
         response = client.models.generate_content(

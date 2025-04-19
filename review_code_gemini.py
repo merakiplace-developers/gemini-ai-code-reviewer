@@ -1,15 +1,15 @@
+import fnmatch
 import json
 import os
-from typing import List, Dict, Any
-from github import Github
 import requests
-import fnmatch
-from unidiff import Hunk
-from google.oauth2 import service_account
+from github import Github
 from google import genai
-from google.oauth2 import service_account
 from google.genai import Client
 from google.genai.types import GenerateContentConfig, ThinkingConfig
+from google.oauth2 import service_account
+from google.oauth2 import service_account
+from typing import List, Dict, Any
+from unidiff import Hunk
 
 # === Vertex AI init ===
 credentials_dict = json.loads(os.environ["VERTEXAI_CREDENTIALS_JSON"])
@@ -21,9 +21,9 @@ credentials = service_account.Credentials.from_service_account_info(credentials_
 #     credentials=credentials
 # )
 
-PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"] # @param {type: "string", placeholder: "[your-project-id]", isTemplate: true}
+PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"]
 
-LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
+LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "asia-northeast3")
 
 client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
 
@@ -33,6 +33,7 @@ gh = Github(GITHUB_TOKEN)
 
 LANGUAGE = os.environ.get("LANGUAGE", "English")
 
+
 class PRDetails:
     def __init__(self, owner: str, repo: str, pull_number: int, title: str, description: str):
         self.owner = owner
@@ -40,6 +41,7 @@ class PRDetails:
         self.pull_number = pull_number
         self.title = title
         self.description = description
+
 
 def get_pr_details() -> PRDetails:
     with open(os.environ["GITHUB_EVENT_PATH"], "r") as f:
@@ -58,6 +60,7 @@ def get_pr_details() -> PRDetails:
 
     return PRDetails(owner, repo.name, pull_number, pr.title, pr.body)
 
+
 def get_diff(owner: str, repo: str, pull_number: int) -> str:
     repo_name = f"{owner}/{repo}"
     api_url = f"https://api.github.com/repos/{repo_name}/pulls/{pull_number}"
@@ -67,6 +70,7 @@ def get_diff(owner: str, repo: str, pull_number: int) -> str:
     }
     response = requests.get(f"{api_url}.diff", headers=headers)
     return response.text if response.status_code == 200 else ""
+
 
 def create_prompt(file_path: str, hunk: Hunk, pr_details: PRDetails) -> str:
     language_instruction = {
@@ -117,14 +121,9 @@ def create_prompt(file_path: str, hunk: Hunk, pr_details: PRDetails) -> str:
 
     return f"""{instruction}
 
-Your task is reviewing pull requests. Instructions:
-- Provide the response in following JSON format:  {{"reviews": [{{"lineNumber":  <line_number>, "reviewComment": "<review comment>"}}]}}
-- Provide comments and suggestions ONLY if there is something to improve, otherwise "reviews" should be an empty array.
-- Use GitHub Markdown in comments
-- Focus on bugs, security issues, and performance problems
-- IMPORTANT: NEVER suggest adding comments to the code
+Your task is reviewing this code fragment as part of a pull request. 
 
-Review the following code diff in the file "{file_path}" and take the pull request title and description into account when writing the response.
+Please analyze the following code diff in the file "{file_path}" and consider the pull request context.
 
 Pull request title: {pr_details.title}
 Pull request description:
@@ -136,25 +135,53 @@ Git diff to review:
 {hunk.content}
 ```"""
 
-def get_ai_response(prompt: str) -> List[Dict[str, str]]:
-config = GenerateContentConfig(
-    temperature=0.8,
-    top_p=0.95,
-    system_instruction="""
-You are an experienced Senior Software Engineer reviewing code for quality and correctness.
-Your goals are:
-- Identify **bugs**, **security vulnerabilities**, and **performance issues**
-- Suggest **clear and concise** improvements to the code
-- Never suggest adding comments unless absolutely necessary
-- Do not rewrite code unless required
-- Do not nitpick stylistic choices unless they directly impact functionality or readability
-- Be **direct**, **honest**, and even a bit **sarcastic** if the code is poor
-- Use GitHub-flavored Markdown (e.g., bullet points, inline code)
-- Always return your feedback in the specified JSON format
-- NEVER output explanations outside the JSON payload
-""",
-    thinking_config=ThinkingConfig(thinking_budget=1024),
-)
+
+def get_ai_response(prompt: str) -> Dict[str, Any]:
+    config = GenerateContentConfig(
+        temperature=0.8,
+        top_p=0.95,
+        system_instruction="""
+    You are an experienced Senior Software Engineer reviewing code for quality and correctness.
+
+    # Response structure
+    First, provide a brief summary of the PR's purpose based on the title, description, and code changes.
+    Then, provide detailed code review comments as specified below.
+
+    # Objectives
+    - Identify bugs, security vulnerabilities, and performance issues
+    - Suggest clear and specific improvements with rationale
+    - Evaluate code maintainability and readability
+
+    # Focus areas
+    - Logic errors and edge cases
+    - Security risks (e.g., injection vulnerabilities, authentication issues)
+    - Performance bottlenecks (e.g., inefficient algorithms, resource leaks)
+    - Error handling and resilience
+    - Design patterns and architecture
+
+    # Response guidelines
+    - Be direct, constructive, and professional
+    - Support criticisms with clear reasoning
+    - Suggest specific solutions when identifying problems
+    - Use GitHub-flavored Markdown for formatting
+    - Be concise but thorough
+
+    # Response format
+    - Provide the response in following JSON format: 
+      {
+        "summary": "Brief summary of the PR's purpose and changes",
+        "reviews": [
+          {"lineNumber": <line_number>, "reviewComment": "<review comment>"}
+        ]
+      }
+    - Provide comments ONLY if there is something to improve, otherwise "reviews" should be an empty array
+    - Never suggest adding comments to the code unless they significantly improve understanding
+    - Do not focus on stylistic choices unless they impact functionality or maintainability
+
+    Thoroughly analyze the code before responding, and ensure all feedback is actionable and valuable.
+    """,
+        thinking_config=ThinkingConfig(thinking_budget=1024),
+    )
 
     try:
         response = client.models.generate_content(
@@ -167,21 +194,31 @@ Your goals are:
             text = text[7:]
         if text.endswith('```'):
             text = text[:-3]
-        return json.loads(text).get("reviews", [])
+        return json.loads(text)
     except Exception as e:
         print("AI response parse error:", e)
-        return []
+        return {"summary": "", "reviews": []}
 
-def create_comment(file_path: str, hunk: Hunk, ai_responses: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+
+def create_comment(file_path: str, hunk: Hunk, ai_response: Dict[str, Any]) -> List[Dict[str, Any]]:
     comments = []
     diff_lines = hunk.content.splitlines()
     added_line_indices = [i for i, line in enumerate(diff_lines) if line.startswith("+") and not line.startswith("+++")]
 
-    for res in ai_responses:
+    # Add PR summary as the first comment if available
+    if ai_response.get("summary"):
+        comments.append({
+            "body": f"### PR Summary\n{ai_response.get('summary')}",
+            "path": file_path,
+            "position": 1  # Position at the beginning of the diff
+        })
+
+    # Add individual line comments
+    for res in ai_response.get("reviews", []):
         try:
-            line_number = int(res["lineNumber"]) - 1  
+            line_number = int(res["lineNumber"]) - 1
             if 0 <= line_number < len(added_line_indices):
-                position = added_line_indices[line_number] + 1  
+                position = added_line_indices[line_number] + 1
                 comments.append({
                     "body": res["reviewComment"],
                     "path": file_path,
@@ -191,10 +228,12 @@ def create_comment(file_path: str, hunk: Hunk, ai_responses: List[Dict[str, str]
             print("Comment creation error:", e)
     return comments
 
+
 def create_review_comment(owner: str, repo: str, pull_number: int, comments: List[Dict[str, Any]]):
     repo = gh.get_repo(f"{owner}/{repo}")
     pr = repo.get_pull(pull_number)
     pr.create_review(body="Vertex AI Code Review", comments=comments, event="COMMENT")
+
 
 def parse_diff(diff_str: str) -> List[Dict[str, Any]]:
     files, current_file, current_hunk = [], None, None
@@ -216,11 +255,15 @@ def parse_diff(diff_str: str) -> List[Dict[str, Any]]:
         files.append(current_file)
     return files
 
+
 def analyze_code(parsed_diff: List[Dict[str, Any]], pr_details: PRDetails) -> List[Dict[str, Any]]:
-    comments = []
+    all_comments = []
+    pr_summary_added = False
+
     for file_data in parsed_diff:
         file_path = file_data.get('path', '')
         hunks = file_data.get('hunks', [])
+
         for hunk_data in hunks:
             hunk = Hunk()
             hunk.source_start = 1
@@ -229,9 +272,20 @@ def analyze_code(parsed_diff: List[Dict[str, Any]], pr_details: PRDetails) -> Li
             hunk.target_length = len(hunk_data.get('lines', []))
             hunk.content = '\n'.join(hunk_data.get('lines', []))
             prompt = create_prompt(file_path, hunk, pr_details)
-            ai_responses = get_ai_response(prompt)
-            comments.extend(create_comment(file_path, hunk, ai_responses))
-    return comments
+
+            ai_response = get_ai_response(prompt)
+
+            # If it's the first hunk being processed, use the summary
+            file_comments = create_comment(file_path, hunk, ai_response if not pr_summary_added else {
+                "reviews": ai_response.get("reviews", [])})
+
+            if not pr_summary_added and ai_response.get("summary") and file_comments:
+                pr_summary_added = True
+
+            all_comments.extend(file_comments)
+
+    return all_comments
+
 
 def main():
     pr_details = get_pr_details()
@@ -249,6 +303,7 @@ def main():
     comments = analyze_code(filtered_diff, pr_details)
     if comments:
         create_review_comment(pr_details.owner, pr_details.repo, pr_details.pull_number, comments)
+
 
 if __name__ == "__main__":
     main()

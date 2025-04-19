@@ -24,7 +24,7 @@ PROJECT_ID = os.environ["VERTEXAI_PROJECT_ID"]
 LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
 
 # Initialize client with Google credentials
-client = genai.Client(project=PROJECT_ID, location=LOCATION)
+client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
 
 # === GitHub API setup ===
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
